@@ -2299,6 +2299,70 @@ document.addEventListener('touchend', e => {
   const i = Number(state.route.arg) || 1;
   if (Math.abs(dx) > 60) { if (dx < 0 && i < 6) location.hash = `#/guide/${i + 1}`; if (dx > 0 && i > 1) location.hash = `#/guide/${i - 1}`; }
 }, { passive: true });
+/* ---------- mobile tab swipe navigation ----------
+   Swipe horizontally across ordinary page content to move one adjacent primary tab.
+   Do not hijack vertical scrolling, the court matrix, the guide carousel,
+   clickable controls, dialogs or OS-level edge gestures. */
+const SWIPE_TABS = [
+  { name: 'home', hash: '#/' },
+  { name: 'team', hash: '#/team' },
+  { name: 'schedule', hash: '#/schedule' },
+  { name: 'standings', hash: '#/standings' },
+  { name: 'help', hash: '#/help' }
+];
+let tabSwipe = null;
+function swipeInHorizontalScroller(node, root) {
+  for (let el = node; el && el !== root; el = el.parentElement) {
+    if (el.scrollWidth > el.clientWidth + 8) {
+      const overflow = getComputedStyle(el).overflowX;
+      if (overflow === 'auto' || overflow === 'scroll') return true;
+    }
+  }
+  return false;
+}
+function swipeAllowedAt(target) {
+  if (!window.matchMedia('(max-width: 1023px)').matches || state.welcome) return false;
+  if (document.querySelector('dialog[open]')) return false;
+  const main = $('#main');
+  if (!main || !main.contains(target)) return false;
+  if (!SWIPE_TABS.some(t => t.name === state.route.name)) return false;
+  if (target.closest('input, textarea, select, button, a, label, summary, [contenteditable], [role="button"], [role="slider"], [role="tab"], #guide-fig, [data-no-page-swipe]')) return false;
+  return !swipeInHorizontalScroller(target, main);
+}
+document.addEventListener('touchstart', e => {
+  tabSwipe = null;
+  if (e.touches.length !== 1 || !swipeAllowedAt(e.target)) return;
+  const t = e.touches[0];
+  const width = document.documentElement.clientWidth;
+  // Keep the device/browser back and forward gestures available at the edges.
+  if (t.clientX < 64 || t.clientX > width - 64) return;
+  tabSwipe = { id: t.identifier, x: t.clientX, y: t.clientY,
+    route: state.route.name, started: Date.now() };
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!tabSwipe || e.touches.length !== 1) { tabSwipe = null; return; }
+  const t = e.touches[0];
+  if (t.identifier !== tabSwipe.id) { tabSwipe = null; return; }
+  const dx = t.clientX - tabSwipe.x, dy = t.clientY - tabSwipe.y;
+  // Once a gesture is clearly vertical, let normal scrolling win.
+  if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.15) tabSwipe = null;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  const swipe = tabSwipe;
+  tabSwipe = null;
+  if (!swipe || state.welcome || document.querySelector('dialog[open]')) return;
+  const t = Array.from(e.changedTouches).find(p => p.identifier === swipe.id);
+  if (!t || state.route.name !== swipe.route || Date.now() - swipe.started > 1200) return;
+  const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+  const minDistance = Math.max(64, Math.min(110, document.documentElement.clientWidth * .16));
+  if (Math.abs(dx) < minDistance || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+  const index = SWIPE_TABS.findIndex(item => item.name === swipe.route);
+  const next = index + (dx < 0 ? 1 : -1);
+  if (index < 0 || next < 0 || next >= SWIPE_TABS.length) return;
+  location.hash = SWIPE_TABS[next].hash;
+}, { passive: true });
+document.addEventListener('touchcancel', () => { tabSwipe = null; }, { passive: true });
+
 // Animate only real route/scene changes; filters and typing stay immediate.
 function transitionRender(focusMain = false) {
   const update = () => render(focusMain);
