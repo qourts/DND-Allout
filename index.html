@@ -584,7 +584,66 @@ dialog::backdrop{background:rgba(0,0,0,.78);backdrop-filter:blur(4px)}
 .zoom-pane img{width:min(100%,1000px);height:auto;margin:0 auto}
 .zoom-pane.z2 img{width:200%;max-width:none}
 
-/* 8. RESPONSIVE */
+
+/* 8. MOTION SYSTEM — concise, purposeful and reduced-motion safe */
+:root{--motion-fast:150ms;--motion-page:245ms;--motion-sheet:270ms;--motion-ease:cubic-bezier(.22,1,.36,1)}
+
+/* Shared-page transitions: native View Transitions in supporting browsers. */
+@supports (view-transition-name: allout-page){
+  /* Keep the fixed navigation steady while only the active page transitions. */
+  ::view-transition-old(root),::view-transition-new(root){animation:none}
+  #main{view-transition-name:allout-page}
+  .team-chip{view-transition-name:allout-team}
+  ::view-transition-old(allout-page){animation:ao-page-out 150ms ease-in both}
+  ::view-transition-new(allout-page){animation:ao-page-in var(--motion-page) var(--motion-ease) both}
+  ::view-transition-group(allout-team){animation-duration:220ms;animation-timing-function:var(--motion-ease)}
+  ::view-transition-old(allout-team){animation:ao-team-out 120ms ease-in both}
+  ::view-transition-new(allout-team){animation:ao-team-in 220ms var(--motion-ease) both}
+}
+@keyframes ao-team-out{to{opacity:.5}}
+@keyframes ao-team-in{from{opacity:.4}to{opacity:1}}
+@keyframes ao-page-out{to{opacity:0;transform:translateY(-7px) scale(.995)}}
+@keyframes ao-page-in{from{opacity:0;transform:translateY(12px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
+/* Fallback for browsers without native same-document transitions. */
+#main.ao-page-enter{animation:ao-page-in var(--motion-page) var(--motion-ease) both}
+
+/* Sheets move into place; zoom receives a shorter, closer-to-camera entrance. */
+dialog[open]:has(.sheet) .sheet{animation:ao-sheet-in var(--motion-sheet) var(--motion-ease) both}
+dialog[open]::backdrop{animation:ao-backdrop-in 200ms ease-out both}
+dialog.zoom-dlg[open]{animation:ao-zoom-in 200ms var(--motion-ease) both}
+@keyframes ao-sheet-in{from{opacity:.35;transform:translateY(28px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes ao-backdrop-in{from{opacity:0}to{opacity:1}}
+@keyframes ao-zoom-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+
+/* Active destinations and small controls should feel responsive, not busy. */
+.bottom-nav a,.desk-nav a,.team-chip,.icon-btn,.chip,.seg button,.pick,.menu-list a,.quick a,.help-cards a,.bm,.focus,.mrow,.btn{
+  transition:transform var(--motion-fast) var(--motion-ease),border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,opacity var(--motion-fast) ease;
+}
+.bottom-nav a svg{transition:transform var(--motion-fast) var(--motion-ease)}
+.bottom-nav a[aria-current="page"] svg{transform:translateY(-2px)}
+.bottom-nav a[aria-current="page"]::before{animation:ao-nav-indicator 190ms var(--motion-ease) both}
+@keyframes ao-nav-indicator{from{transform:scaleX(.4);opacity:.3}to{transform:scaleX(1);opacity:1}}
+.faq[open] .a{animation:ao-faq-in 190ms var(--motion-ease) both}
+@keyframes ao-faq-in{from{opacity:.4;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+@media (hover:hover) and (pointer:fine){
+  .mrow:hover,.pick:hover,.menu-list a:hover,.quick a:hover,.help-cards a:hover,.bm:hover{transform:translateY(-2px)}
+  .btn-primary:hover{box-shadow:0 13px 32px rgba(232,57,43,.25);transform:translateY(-1px)}
+  .team-chip:hover,.icon-btn:hover{transform:translateY(-1px)}
+}
+.btn:active,.icon-btn:active,.chip:active,.pick:active,.mrow:active{transform:scale(.985)}
+
+/* Accessibility: no page slide, dialog motion, or repeated animation when reduced motion is requested. */
+@media (prefers-reduced-motion:reduce){
+  #main.ao-page-enter,dialog[open]:has(.sheet) .sheet,dialog[open]::backdrop,
+  dialog.zoom-dlg[open],.bottom-nav a[aria-current="page"]::before,.faq[open] .a{animation:none!important}
+  .bottom-nav a[aria-current="page"] svg{transform:none}
+  ::view-transition-old(allout-page),::view-transition-new(allout-page),
+  ::view-transition-old(allout-team),::view-transition-new(allout-team){animation:none!important}
+}
+
+/* 9. RESPONSIVE */
 @media (min-width:420px){
   .roster{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -2189,11 +2248,11 @@ document.addEventListener('click', e => {
   if (!el) { if (e.target.tagName === 'DIALOG') { closeDialogs(); lastFocus?.focus?.(); } return; }
   const act = el.dataset.act;
   if (act === 'match') openMatch(el.dataset.id);
-  else if (act === 'pick') { leaveWelcome(); setTeam(el.dataset.id); closeDialogs(); if (location.hash === '#/' || location.hash === '' || location.hash === '#/home') render(true); else location.hash = '#/'; }
-  else if (act === 'change') { setTeam(null); location.hash = '#/team'; render(true); }
-  else if (act === 'clear') { setTeam(null); setMode(null); state.welcome = true; location.hash = '#/'; render(true); }
-  else if (act === 'spectator') { leaveWelcome(); setMode('spectator'); state.finderQ = ''; render(true); }
-  else if (act === 'wcontinue') { leaveWelcome(); setMode('player'); render(true); }
+  else if (act === 'pick') { leaveWelcome(); setTeam(el.dataset.id); closeDialogs(); if (location.hash === '#/' || location.hash === '' || location.hash === '#/home') transitionRender(true); else location.hash = '#/'; }
+  else if (act === 'change') { setTeam(null); if (location.hash === '#/team') transitionRender(true); else location.hash = '#/team'; }
+  else if (act === 'clear') { setTeam(null); setMode(null); state.welcome = true; if (location.hash === '#/') transitionRender(true); else location.hash = '#/'; }
+  else if (act === 'spectator') { leaveWelcome(); setMode('spectator'); state.finderQ = ''; transitionRender(true); }
+  else if (act === 'wcontinue') { leaveWelcome(); setMode('player'); transitionRender(true); }
   else if (act === 'goto') { closeDialogs(); location.hash = el.dataset.href; }
   else if (act === 'menu') openMenu();
   else if (act === 'jumpnow') { const sec = document.getElementById('slot-' + el.dataset.t); if (sec) sec.scrollIntoView({ block: 'start' }); }
@@ -2240,7 +2299,22 @@ document.addEventListener('touchend', e => {
   const i = Number(state.route.arg) || 1;
   if (Math.abs(dx) > 60) { if (dx < 0 && i < 6) location.hash = `#/guide/${i + 1}`; if (dx > 0 && i > 1) location.hash = `#/guide/${i - 1}`; }
 }, { passive: true });
-window.addEventListener('hashchange', () => { closeDialogs(); render(true); });
+// Animate only real route/scene changes; filters and typing stay immediate.
+function transitionRender(focusMain = false) {
+  const update = () => render(focusMain);
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) { update(); return; }
+  if (typeof document.startViewTransition === 'function' && document.visibilityState !== 'hidden') {
+    document.startViewTransition(update);
+    return;
+  }
+  update();
+  const main = $('#main');
+  main.classList.remove('ao-page-enter');
+  void main.offsetWidth;
+  main.classList.add('ao-page-enter');
+}
+window.addEventListener('hashchange', () => { closeDialogs(); transitionRender(true); });
 
 /* ---------- boot ---------- */
 function boot() {
