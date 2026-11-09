@@ -589,24 +589,9 @@ dialog::backdrop{background:rgba(0,0,0,.78);backdrop-filter:blur(4px)}
 :root{--motion-fast:150ms;--motion-page:245ms;--motion-sheet:270ms;--motion-ease:cubic-bezier(.22,1,.36,1)}
 
 /* Shared-page transitions: native View Transitions in supporting browsers. */
-@supports (view-transition-name: allout-page){
-  /* Keep the fixed navigation steady while only the active page transitions. */
-  ::view-transition-old(root),::view-transition-new(root){animation:none}
-  #main{view-transition-name:allout-page}
-  .team-chip{view-transition-name:allout-team}
-  ::view-transition-old(allout-page){animation:ao-page-out 150ms ease-in both}
-  ::view-transition-new(allout-page){animation:ao-page-in var(--motion-page) var(--motion-ease) both}
-  ::view-transition-group(allout-team){animation-duration:220ms;animation-timing-function:var(--motion-ease)}
-  ::view-transition-old(allout-team){animation:ao-team-out 120ms ease-in both}
-  ::view-transition-new(allout-team){animation:ao-team-in 220ms var(--motion-ease) both}
-}
-@keyframes ao-team-out{to{opacity:.5}}
-@keyframes ao-team-in{from{opacity:.4}to{opacity:1}}
-@keyframes ao-page-out{to{opacity:0;transform:translateY(-7px) scale(.995)}}
-@keyframes ao-page-in{from{opacity:0;transform:translateY(12px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
-/* Fallback for browsers without native same-document transitions. */
-#main.ao-page-enter{animation:ao-page-in var(--motion-page) var(--motion-ease) both}
-
+/* The previous root snapshot View Transition is intentionally removed.
+   Only the content surface animates; the header and bottom bar remain fixed. */
+@keyframes ao-page-in {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 /* Sheets move into place; zoom receives a shorter, closer-to-camera entrance. */
 dialog[open]:has(.sheet) .sheet{animation:ao-sheet-in var(--motion-sheet) var(--motion-ease) both}
 dialog[open]::backdrop{animation:ao-backdrop-in 200ms ease-out both}
@@ -641,6 +626,31 @@ dialog.zoom-dlg[open]{animation:ao-zoom-in 200ms var(--motion-ease) both}
   .bottom-nav a[aria-current="page"] svg{transform:none}
   ::view-transition-old(allout-page),::view-transition-new(allout-page),
   ::view-transition-old(allout-team),::view-transition-new(allout-team){animation:none!important}
+}
+
+
+/* Mobile-native horizontal tab paging. Only #main moves: navigation and chrome never fade. */
+#ao-swipe-viewport{overflow-x:clip;overflow-y:visible;position:relative}
+@media (max-width: 1023px) {
+  #main { position:relative; }
+  #main.ao-swipe-moving { will-change: transform; }
+  #main.ao-swipe-settling {
+    transition: transform 245ms cubic-bezier(.22, .82, .22, 1) !important;
+    will-change: transform;
+  }
+  #main > .ao-swipe-neighbor {
+    position:absolute; top:0; left:0; width:100%;
+    padding:inherit; box-sizing:border-box; min-height:70vh;
+    transform:translate3d(var(--ao-neighbor-offset),0,0);
+    background:var(--bg); pointer-events:none;
+    contain:layout style;
+  }
+  #main.ao-page-enter {animation:none!important}
+  /* The active destination updates instantly; the bar is always visually stable. */
+  .bottom-nav a[aria-current="page"]::before {animation:none!important}
+}
+@media (prefers-reduced-motion: reduce) {
+  #main.ao-swipe-settling{transition:none!important}
 }
 
 /* 9. RESPONSIVE */
@@ -755,7 +765,7 @@ dialog.zoom-dlg[open]{animation:ao-zoom-in 200ms var(--motion-ease) both}
     </div>
   </div>
 </header>
-<main id="main" tabindex="-1"></main>
+<div id="ao-swipe-viewport"><main id="main" tabindex="-1"></main></div>
 <footer class="site-foot">
   <div class="org"><img data-asset="dnd" alt="Day & Night Dinkers" width="120" height="50"><span>Organized by Day &amp; Night Dinkers<br>Nov 14, 2026 · Kingcourts Pickleball, San Fernando, Pampanga</span></div>
   <div class="mc"><small>Official Match Control</small><img data-asset="qourts" alt="Qourts" width="103" height="40"></div>
@@ -2303,6 +2313,8 @@ document.addEventListener('touchend', e => {
    Swipe horizontally across ordinary page content to move one adjacent primary tab.
    Do not hijack vertical scrolling, the court matrix, the guide carousel,
    clickable controls, dialogs or OS-level edge gestures. */
+/* Swipeable mobile tabs: content tracks the gesture, chrome never moves.
+   This intentionally does not clone/animate #bottom-nav or the header. */
 const SWIPE_TABS = [
   { name: 'home', hash: '#/' },
   { name: 'team', hash: '#/team' },
@@ -2310,7 +2322,15 @@ const SWIPE_TABS = [
   { name: 'standings', hash: '#/standings' },
   { name: 'help', hash: '#/help' }
 ];
+const SWIPE_LOCK = 13;        // px before the horizontal/vertical intent is locked
+const SWIPE_SETTLE_MS = 245; // matches the CSS motion system
 let tabSwipe = null;
+let slideState = null;
+let swipeCommitPending = false;
+let slideTimer = null;
+function tabIndex(name) { return SWIPE_TABS.findIndex(t => t.name === name); }
+function reducedMotion() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function mobileTabs() { return window.matchMedia('(max-width: 1023px)').matches && !state.welcome; }
 function swipeInHorizontalScroller(node, root) {
   for (let el = node; el && el !== root; el = el.parentElement) {
     if (el.scrollWidth > el.clientWidth + 8) {
@@ -2321,64 +2341,170 @@ function swipeInHorizontalScroller(node, root) {
   return false;
 }
 function swipeAllowedAt(target) {
-  if (!window.matchMedia('(max-width: 1023px)').matches || state.welcome) return false;
-  if (document.querySelector('dialog[open]')) return false;
+  if (!mobileTabs() || document.querySelector('dialog[open]') || slideState) return false;
   const main = $('#main');
   if (!main || !main.contains(target)) return false;
-  if (!SWIPE_TABS.some(t => t.name === state.route.name)) return false;
+  if (tabIndex(state.route.name) === -1) return false;
   if (target.closest('input, textarea, select, button, a, label, summary, [contenteditable], [role="button"], [role="slider"], [role="tab"], #guide-fig, [data-no-page-swipe]')) return false;
   return !swipeInHorizontalScroller(target, main);
 }
+function slideClear() {
+  clearTimeout(slideTimer); slideTimer = null;
+  const main = $('#main');
+  if (slideState) {
+    if (slideState.endHandler) main.removeEventListener('transitionend', slideState.endHandler);
+    slideState.neighbor.remove();
+  }
+  main.classList.remove('ao-swipe-moving', 'ao-swipe-settling');
+  main.style.transform = '';
+  main.style.transition = '';
+  slideState = null;
+}
+function slideMake(nextIndex, direction) {
+  const main = $('#main');
+  if (!main || slideState || nextIndex < 0 || nextIndex >= SWIPE_TABS.length) return false;
+  const next = SWIPE_TABS[nextIndex];
+  const width = document.documentElement.clientWidth;
+  const neighbor = document.createElement('div');
+  neighbor.className = 'ao-swipe-neighbor';
+  neighbor.inert = true;
+  neighbor.setAttribute('aria-hidden', 'true');
+  neighbor.style.setProperty('--ao-neighbor-offset', (direction * width) + 'px');
+  neighbor.innerHTML = PAGES[next.name](null);
+  // Avoid duplicate IDs during the brief gesture preview and load embedded images.
+  neighbor.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+  neighbor.querySelectorAll('img[data-asset]').forEach(img => {
+    if (ASSETS[img.dataset.asset]) img.src = ASSETS[img.dataset.asset];
+  });
+  main.appendChild(neighbor);
+  main.classList.add('ao-swipe-moving');
+  slideState = { main, neighbor, next, nextIndex, width, direction, done:false };
+  return true;
+}
+function slideSetX(dx) {
+  if (!slideState) return;
+  // CSS transform moves old page and incoming sibling in the same composited layer.
+  slideState.main.style.transform = `translate3d(${dx}px, 0, 0)`;
+}
+function slideSettle(complete, commitHash = false) {
+  const slide = slideState;
+  if (!slide || slide.done) return;
+  slide.done = true;
+  const finish = () => {
+    if (slideState !== slide) return;
+    slideClear();
+    if (complete) {
+      if (commitHash) {
+        swipeCommitPending = true;
+        if (location.hash === slide.next.hash) { swipeCommitPending = false; render(true); }
+        else location.hash = slide.next.hash;
+      } else render(true); // tab was already changed by tapping its navigation link
+    }
+  };
+  if (reducedMotion()) { finish(); return; }
+  slide.main.classList.add('ao-swipe-settling');
+  const target = complete ? -slide.direction * slide.width : 0;
+  // Flush initial gesture transform so the release animates from the finger's position.
+  void slide.main.offsetWidth;
+  slide.endHandler = ev => {
+    if (ev.target !== slide.main || ev.propertyName !== 'transform') return;
+    finish();
+  };
+  slide.main.addEventListener('transitionend', slide.endHandler);
+  slideTimer = setTimeout(finish, SWIPE_SETTLE_MS + 90);
+  slideSetX(target);
+}
+function slideToHashFromTap(nextIndex) {
+  const prev = tabIndex(state.route.name);
+  if (prev < 0 || prev === nextIndex || !slideMake(nextIndex, Math.sign(nextIndex - prev))) {
+    render(true); return;
+  }
+  // Start at rest, then let the next page move into place. Header/bottom nav do not move.
+  slideSetX(0);
+  requestAnimationFrame(() => {
+    if (slideState && slideState.nextIndex === nextIndex) slideSettle(true, false);
+  });
+}
+// Touch input with a horizontal-intent lock and an interactive drag surface.
 document.addEventListener('touchstart', e => {
   tabSwipe = null;
   if (e.touches.length !== 1 || !swipeAllowedAt(e.target)) return;
-  const t = e.touches[0];
-  const width = document.documentElement.clientWidth;
-  // Keep the device/browser back and forward gestures available at the edges.
-  if (t.clientX < 64 || t.clientX > width - 64) return;
-  tabSwipe = { id: t.identifier, x: t.clientX, y: t.clientY,
-    route: state.route.name, started: Date.now() };
-}, { passive: true });
+  const t = e.touches[0], width = document.documentElement.clientWidth;
+  // Leave the OS back/forward edge gestures untouched.
+  if (t.clientX < 24 || t.clientX > width - 24) return;
+  tabSwipe = { id:t.identifier, x:t.clientX, y:t.clientY,
+    route:state.route.name, started:performance.now(), lock:null, latestX:0 };
+}, { passive:true });
 document.addEventListener('touchmove', e => {
-  if (!tabSwipe || e.touches.length !== 1) { tabSwipe = null; return; }
+  const swipe = tabSwipe;
+  if (!swipe || e.touches.length !== 1) return;
   const t = e.touches[0];
-  if (t.identifier !== tabSwipe.id) { tabSwipe = null; return; }
-  const dx = t.clientX - tabSwipe.x, dy = t.clientY - tabSwipe.y;
-  // Once a gesture is clearly vertical, let normal scrolling win.
-  if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.15) tabSwipe = null;
-}, { passive: true });
+  if (t.identifier !== swipe.id) { tabSwipe = null; return; }
+  const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+  if (!swipe.lock) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_LOCK) return;
+    if (Math.abs(dy) >= Math.abs(dx) * 1.1) { tabSwipe = null; return; }
+    const current = tabIndex(swipe.route);
+    const target = current + (dx < 0 ? 1 : -1);
+    if (current < 0 || target < 0 || target >= SWIPE_TABS.length) { tabSwipe = null; return; }
+    swipe.lock = 'horizontal';
+    swipe.target = target;
+    if (!reducedMotion() && !slideMake(target, dx < 0 ? 1 : -1)) { tabSwipe = null; return; }
+  }
+  if (swipe.lock !== 'horizontal') return;
+  if (e.cancelable) e.preventDefault();
+  swipe.latestX = Math.max(-document.documentElement.clientWidth,
+    Math.min(document.documentElement.clientWidth, dx));
+  if (slideState) slideSetX(swipe.latestX);
+}, { passive:false });
 document.addEventListener('touchend', e => {
   const swipe = tabSwipe;
   tabSwipe = null;
-  if (!swipe || state.welcome || document.querySelector('dialog[open]')) return;
-  const t = Array.from(e.changedTouches).find(p => p.identifier === swipe.id);
-  if (!t || state.route.name !== swipe.route || Date.now() - swipe.started > 1200) return;
+  if (!swipe || swipe.lock !== 'horizontal') return;
+  const t = Array.from(e.changedTouches).find(x => x.identifier === swipe.id);
+  if (!t || swipe.route !== state.route.name || !mobileTabs()) {
+    if (slideState) slideSettle(false); return;
+  }
   const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
-  const minDistance = Math.max(64, Math.min(110, document.documentElement.clientWidth * .16));
-  if (Math.abs(dx) < minDistance || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-  const index = SWIPE_TABS.findIndex(item => item.name === swipe.route);
-  const next = index + (dx < 0 ? 1 : -1);
-  if (index < 0 || next < 0 || next >= SWIPE_TABS.length) return;
-  location.hash = SWIPE_TABS[next].hash;
-}, { passive: true });
-document.addEventListener('touchcancel', () => { tabSwipe = null; }, { passive: true });
-
-// Animate only real route/scene changes; filters and typing stay immediate.
-function transitionRender(focusMain = false) {
-  const update = () => render(focusMain);
-  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduceMotion) { update(); return; }
-  if (typeof document.startViewTransition === 'function' && document.visibilityState !== 'hidden') {
-    document.startViewTransition(update);
+  const elapsed = Math.max(1, performance.now() - swipe.started);
+  const width = document.documentElement.clientWidth;
+  // Pass at >25% displacement, or a clean fast flick of at least 36px.
+  const directionMatches = (dx < 0 ? 1 : -1) === (swipe.target - tabIndex(swipe.route));
+  const valid = directionMatches && (Math.abs(dx) >= width * .25 ||
+    (Math.abs(dx) > 36 && Math.abs(dx) / elapsed > .55 && Math.abs(dx) > Math.abs(dy) * 1.25));
+  if (reducedMotion()) {
+    if (valid) location.hash = SWIPE_TABS[swipe.target].hash;
     return;
   }
+  if (slideState) slideSettle(valid, true);
+}, { passive:true });
+document.addEventListener('touchcancel', () => {
+  tabSwipe = null;
+  if (slideState) slideSettle(false);
+}, { passive:true });
+window.addEventListener('resize', () => { tabSwipe = null; if (slideState) slideClear(); });
+window.addEventListener('hashchange', () => {
+  closeDialogs();
+  if (swipeCommitPending) { swipeCommitPending = false; render(true); return; }
+  if (slideState) slideClear();
+  const next = parseRoute(), prev = state.route;
+  const nextIndex = tabIndex(next.name);
+  if (mobileTabs() && !reducedMotion() && tabIndex(prev.name) !== -1 &&
+      nextIndex !== -1 && prev.name !== next.name) slideToHashFromTap(nextIndex);
+  else transitionRender(true);
+});
+// Non-tab state changes are immediate on mobile, so they never flash the fixed chrome.
+function transitionRender(focusMain = false) {
+  if (slideState) slideClear();
+  const update = () => render(focusMain);
+  if (mobileTabs()) { update(); return; }
+  if (reducedMotion()) { update(); return; }
   update();
   const main = $('#main');
   main.classList.remove('ao-page-enter');
   void main.offsetWidth;
   main.classList.add('ao-page-enter');
 }
-window.addEventListener('hashchange', () => { closeDialogs(); transitionRender(true); });
 
 /* ---------- boot ---------- */
 function boot() {
