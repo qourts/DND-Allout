@@ -117,6 +117,15 @@ p{margin:0}
 .team-chip.is-empty{background:var(--red);border-color:var(--red);color:#fff}
 .icon-btn{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:999px;border:1px solid var(--line-strong);font-weight:700;font-size:14px}
 .icon-btn:hover,.team-chip:hover{border-color:#5a5550}
+/* Mobile header: keep the selected team and More aligned to the right edge.
+   The desktop navigation's margin must not shift these controls on phones. */
+@media (max-width:1023px){
+  .topbar .brand{flex:0 0 auto}
+  .desk-nav + .top-actions{margin-left:auto;min-width:0}
+  .top-actions .team-chip{min-width:0;max-width:calc(100vw - 170px);flex:0 1 auto}
+  .top-actions .team-chip b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal}
+  .top-actions .icon-btn{flex:none}
+}
 
 main{max-width:var(--max);margin:0 auto;padding:20px var(--pad) calc(var(--nav-h) + 40px);min-height:70vh}
 main:focus{outline:none}
