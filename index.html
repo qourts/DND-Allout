@@ -976,6 +976,13 @@ dialog.zoom-dlg[open]{animation:ao-zoom-in 200ms var(--motion-ease) both}
 }
 
 /* HOME GUIDE — page-turning booklet */
+/* On touch screens, capture the swipe on a transparent layer so the
+   page-flip library cannot interpret one gesture as multiple turns. */
+.hg-touch-shield{display:none}
+@media (hover:none) and (pointer:coarse){
+  .hg-touch-shield{display:block;position:absolute;inset:0;z-index:3;touch-action:pan-y;overscroll-behavior-x:contain}
+}
+
 .hg-bookwrap{max-width:440px;margin:0 auto;width:100%}
 .hg-book-frame{position:relative;border-radius:6px;outline-offset:6px;filter:drop-shadow(0 18px 30px rgba(0,0,0,.55))}
 .hg-book{position:relative;width:100%}
@@ -2090,12 +2097,13 @@ function homeGuide() {
     <div class="hg-progress" aria-hidden="true"><span style="width:${((i + 1) / GUIDE.length) * 100}%"></span></div>
     <div class="hg-stage">
       <div class="hg-carousel hg-bookwrap">
-        <div class="hg-book-frame" tabindex="0" id="hg-book-frame" aria-label="ALL-OUT Explained booklet. Drag a page corner, tap the page edge, or use the arrow keys to turn pages.">
-          <div class="hg-book" id="hg-book">${GUIDE.map((g, k) => `<div class="hg-page"${k === 0 ? ' data-density="hard"' : ''}><img src="${ASSETS.guide[k]}" alt="${esc(g.alt)}" width="1638" height="2048" draggable="false"><span class="hg-folio">${String(k + 1).padStart(2, '0')}</span></div>`).join('')}</div>
+        <div class="hg-book-frame" tabindex="0" id="hg-book-frame" aria-label="ALL-OUT Explained booklet. Swipe left or right to turn one page. On desktop, use the corners or arrow keys.">
+          <div class="hg-book" id="hg-book">${GUIDE.map((g, k) => `<div class="hg-page"><img src="${ASSETS.guide[k]}" alt="${esc(g.alt)}" width="1638" height="2048" draggable="false"><span class="hg-folio">${String(k + 1).padStart(2, '0')}</span></div>`).join('')}</div>
+          <div class="hg-touch-shield" id="hg-touch-shield" aria-hidden="true"></div>
         </div>
         <button type="button" class="hg-zoom" id="hg-zoom" data-act="zoom" data-src="g${i}" data-title="ALL-OUT Explained ${i + 1} of 6" aria-label="Enlarge this graphic">${icon('zoom', 16)} Enlarge</button>
         <div class="hg-dots" aria-hidden="true">${GUIDE.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>
-        <p class="hg-cap">Drag the corner or tap the page edge to turn · Official ALL-OUT Explained by DND</p>
+        <p class="hg-cap">Swipe left/right or use chapter buttons · Official ALL-OUT Explained by DND</p>
       </div>
       <article class="guide-text hg-text" id="hg-text" aria-live="polite">${hgText(i)}</article>
     </div>`;
@@ -2112,31 +2120,136 @@ function hgSync(i) {
   if (tab && tabs) tabs.scrollTo({ left: tab.offsetLeft - (tabs.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' });
 }
 let hgBook = null;
+let hgTurnLock = false;
+let hgTurnTimer = null;
+let hgGesture = null;
 function hgReduced() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-function initBook() {
+function hgDispose() {
+  if (hgTurnTimer) { clearTimeout(hgTurnTimer); hgTurnTimer = null; }
+  hgTurnLock = false;
+  hgGesture = null;
+  const old = hgBook;
   hgBook = null;
+  if (old) { try { old.destroy(); } catch (_) {} }
+}
+function hgRestore(index) {
+  const book = hgBook;
+  if (!book) return;
+  try {
+    if (typeof book.turnToPage === 'function') book.turnToPage(index);
+    else book.flip(index);
+  } catch (_) {}
+}
+function initBook() {
+  hgDispose();
   const el = $('#hg-book'); if (!el) return;
   const start = Math.min(Math.max(state.homeGuide || 0, 0), GUIDE.length - 1);
-  if (hgReduced() || !window.St || !St.PageFlip) {          // no page-curl: simple fading pages
+  if (hgReduced() || !window.St || !St.PageFlip) {
     el.classList.add('hg-static');
     el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === start));
     return;
   }
   try {
-    hgBook = new St.PageFlip(el, { width: 410, height: 513, size: 'stretch', minWidth: 245, maxWidth: 460, minHeight: 306, maxHeight: 575,
-      usePortrait: true, showCover: false, autoSize: true, drawShadow: true, maxShadowOpacity: 0.65, flippingTime: 750,
-      mobileScrollSupport: true, swipeDistance: 30, showPageCorners: true, startPage: start, startZIndex: 1 });
-    hgBook.loadFromHTML(el.querySelectorAll('.hg-page'));
-    hgBook.on('flip', e => hgSync(Number(e.data)));
-  } catch (err) { hgBook = null; el.classList.add('hg-static'); el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === start)); }
+    const book = new St.PageFlip(el, { width: 410, height: 513, size: 'stretch',
+      minWidth: 245, maxWidth: 460, minHeight: 306, maxHeight: 575,
+      usePortrait: true, showCover: false, autoSize: true,
+      drawShadow: true, maxShadowOpacity: 0.65, flippingTime: 560,
+      mobileScrollSupport: true, swipeDistance: 30, showPageCorners: true,
+      startPage: start, startZIndex: 1 });
+    hgBook = book;
+    book.loadFromHTML(el.querySelectorAll('.hg-page'));
+    book.on('flip', e => {
+      if (hgBook !== book || state.route.name !== 'home') return;
+      const index = Number(e.data), current = state.homeGuide || 0;
+      if (!Number.isInteger(index) || index < 0 || index >= GUIDE.length || index === current) return;
+      // Programmatic turns own their destination; ignore a stale callback.
+      if (hgTurnLock) return;
+      // A single physical turn must not unexpectedly return to the cover.
+      const maxStep = window.matchMedia('(max-width:899px)').matches ? 1 : 2;
+      if (Math.abs(index - current) <= maxStep) hgSync(index);
+      else requestAnimationFrame(() => { if (hgBook === book) hgRestore(current); });
+    });
+  } catch (_) {
+    hgBook = null;
+    el.classList.add('hg-static');
+    el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === start));
+  }
 }
-function setHomeGuide(i, scrollPage) {
-  if (i < 0 || i >= GUIDE.length) return;
-  if (hgBook) { const cur = hgBook.getCurrentPageIndex(); if (i === cur + 1) hgBook.flipNext(); else if (i === cur - 1) hgBook.flipPrev(); else if (i !== cur) hgBook.flip(i); }
-  else { const el = $('#hg-book'); if (el) el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === i)); }
+function setHomeGuide(value, scrollPage) {
+  const i = Number(value);
+  if (!Number.isInteger(i) || i < 0 || i >= GUIDE.length || hgTurnLock) return;
+  const previous = state.homeGuide || 0;
+  if (i === previous) return;
   hgSync(i);
-  if (scrollPage) { const box = $('#home-guide'); const top = box.getBoundingClientRect().top; if (top < 0 || top > innerHeight * 0.6) box.scrollIntoView({ block: 'start', behavior: hgReduced() ? 'auto' : 'smooth' }); }
+  const jump = Math.abs(i - previous) > 1;
+  if (hgBook) {
+    try {
+      if (jump) hgRestore(i);
+      else if (i > previous) hgBook.flipNext();
+      else hgBook.flipPrev();
+    } catch (_) { hgRestore(i); }
+    if (!jump) {
+      hgTurnLock = true;
+      hgTurnTimer = setTimeout(() => {
+        hgTurnTimer = null;
+        const book = hgBook;
+        if (book && book.getCurrentPageIndex() !== i) hgRestore(i);
+        hgTurnLock = false;
+      }, 650);
+    }
+  } else {
+    const el = $('#hg-book');
+    if (el) el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === i));
+  }
+  if (scrollPage) {
+    const box = $('#home-guide'); if (!box) return;
+    const top = box.getBoundingClientRect().top;
+    if (top < 0 || top > innerHeight * 0.6)
+      box.scrollIntoView({ block: 'start', behavior: hgReduced() ? 'auto' : 'smooth' });
+  }
 }
+// Touch-only book gestures: one horizontal gesture turns exactly one chapter.
+// Vertical scrolling remains native; the page-wide tab swipe is already disabled here.
+document.addEventListener('touchstart', e => {
+  hgGesture = null;
+  if (!e.target.closest?.('#hg-touch-shield') || e.touches.length !== 1 ||
+      state.route.name !== 'home' || document.querySelector('dialog[open]')) return;
+  const t = e.touches[0];
+  hgGesture = { id: t.identifier, x: t.clientX, y: t.clientY,
+    page: state.homeGuide || 0, horizontal: false };
+  // Prevent the third-party flip handler from also starting on this touch.
+  e.stopPropagation();
+}, { capture: true, passive: true });
+document.addEventListener('touchmove', e => {
+  const g = hgGesture; if (!g) return;
+  const t = Array.from(e.touches).find(p => p.identifier === g.id);
+  if (!t) { hgGesture = null; return; }
+  const dx = t.clientX - g.x, dy = t.clientY - g.y;
+  if (!g.horizontal) {
+    if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.15) {
+      hgGesture = null; return; // let the page scroll
+    }
+    if (Math.abs(dx) >= 16 && Math.abs(dx) > Math.abs(dy) * 1.2)
+      g.horizontal = true;
+  }
+  if (g.horizontal) {
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+  }
+}, { capture: true, passive: false });
+document.addEventListener('touchend', e => {
+  const g = hgGesture; hgGesture = null;
+  if (!g || !g.horizontal) return;
+  const t = Array.from(e.changedTouches).find(p => p.identifier === g.id);
+  if (!t) return;
+  const dx = t.clientX - g.x, dy = t.clientY - g.y;
+  if (e.cancelable) e.preventDefault();
+  e.stopPropagation();
+  if (Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.25 &&
+      state.route.name === 'home' && (state.homeGuide || 0) === g.page)
+    setHomeGuide(g.page + (dx < 0 ? 1 : -1), false);
+}, { capture: true, passive: false });
+document.addEventListener('touchcancel', () => { hgGesture = null; }, { capture: true, passive: true });
 document.addEventListener('keydown', e => {
   if (e.target && e.target.id === 'hg-book-frame' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); setHomeGuide((state.homeGuide || 0) + (e.key === 'ArrowRight' ? 1 : -1), false); }
 });
@@ -2574,6 +2687,7 @@ function render(focusMain = false) {
   const main = $('#main');
   const welcome = state.welcome;
   document.body.classList.toggle('welcome-on', welcome);
+  hgDispose(); // destroy the old page-flip instance before replacing its DOM
   main.innerHTML = welcome ? welcomePage() : PAGES[r.name](r.arg);
   document.title = welcome ? 'Welcome · ALL-OUT Player Portal' : `${TITLES[r.name]} · ALL-OUT Player Portal`;
   const act = navActive(r.name);
