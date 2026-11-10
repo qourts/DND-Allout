@@ -172,6 +172,7 @@ main:focus{outline:none}
 .callout strong{color:#fff}
 .callout .ic{flex:none;margin-top:2px}
 .flag{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.04em;background:#3a2a10;color:#ffd892;border:1px solid #6a4a16;white-space:nowrap}
+.arrival-flag{background:#301c19;border-color:#8a3f32;color:#ffb6a6}
 .pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
 .pill.live{background:rgba(255,75,47,.16);color:#ff8a78;box-shadow:inset 0 0 0 1px rgba(255,75,47,.5)}
 .pill.live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--live);animation:pulse 1.4s infinite}
@@ -1321,8 +1322,8 @@ const FAQ = [
   { id: 'start-time', cat: 'Matchday', q: 'What time does my division start?',
     a: `<ul><li><strong>DUPR 14 and DUPR 16:</strong> first matches at 9:00 AM.</li><li><strong>DUPR 12:</strong> first matches at 1:30 PM.</li><li><strong>Awarding ceremony:</strong> 9:00 PM, all courts.</li></ul><p><a href="#/schedule">Full schedule</a></p>` },
   { id: 'arrive', cat: 'Matchday', q: 'What time should we arrive and check in?',
-    pending: 'DND has not published a check-in time or procedure yet. It will be posted in Updates.',
-    a: `<p>Your team’s first start time is on <a href="#/team">My team</a>. Plan to arrive well before it.</p>` },
+    badge: 'Arrive 30 Minutes Early',
+    a: `<p>Players are encouraged to arrive at the venue <strong>at least 30 minutes before their scheduled match</strong> to allow enough time for check-in and preparation. You can check your team’s scheduled match time under <a href="#/team">My team</a>.</p><p><strong>5-minute grace period:</strong> A 5-minute grace period is given from the scheduled match start time. If either player from a team is still absent after the grace period, the match will be <strong>forfeited in favor of the opposing team</strong>.</p>` },
   { id: 'my-court', cat: 'Matchday', q: 'How do I find my next match and court?',
     a: `<p>Search your team or your own name on <a href="#/team">My team</a>. The portal remembers your team on this phone, so Home always shows your next opponent, start time and court.</p><p>You can also search any team or player on the <a href="#/schedule">Schedule</a>, or switch to the court grid to see all 10 courts at once.</p>` },
   { id: 'how-many', cat: 'Matchday', q: 'How many matches will we play?',
@@ -2022,7 +2023,7 @@ function timeline() {
 function faqTeaser() {
   const items = FAQ_TOP.map(id => FAQ.find(f => f.id === id)).filter(Boolean);
   return `<a class="guide-cta" href="#/guide/1">${icon('guide', 26)}<span><strong>New to ALL-OUT?</strong><small>The 6-part Player Guide explains the format in 2 minutes.</small></span>${icon('right', 18)}</a>
-    <div class="qlist">${items.map(f => `<a href="#/help/${f.id}"><span>${esc(f.q)}</span>${f.pending ? '<span class="flag">Awaiting DND</span>' : ''}${icon('right', 18)}</a>`).join('')}</div>`;
+    <div class="qlist">${items.map(f => `<a href="#/help/${f.id}"><span>${esc(f.q)}</span>${f.badge ? '<span class="flag arrival-flag">' + esc(f.badge) + '</span>' : (f.pending ? '<span class="flag">Awaiting DND</span>' : '')}${icon('right', 18)}</a>`).join('')}</div>`;
 }
 function dayStatus() {
   const rs = MATCHES.map(m => result(m).status);
@@ -2379,7 +2380,7 @@ PAGES.home = () => {
       <div class="event-section-heading"><div><p class="event-overline">GET READY</p><h2 id="event-guide-title">ALL-OUT <em>EXPLAINED</em></h2><p class="event-description">The six official chapters from DND, with the current rules beside each one. Read them right here.</p></div></div>
       <div id="home-guide" class="hg" data-no-page-swipe>${homeGuide()}</div>
       <div class="home-answers"><div class="event-section-heading"><h3>Quick <em>answers</em></h3><a class="event-text-link" href="#/help">All questions ${icon('right', 18)}</a></div>
-        <div class="qlist">${answers.map(f => `<a href="#/help/${f.id}"><span>${esc(f.q)}</span>${f.pending ? '<span class="flag">Awaiting DND</span>' : ''}${icon('right', 18)}</a>`).join('')}</div></div>
+        <div class="qlist">${answers.map(f => `<a href="#/help/${f.id}"><span>${esc(f.q)}</span>${f.badge ? '<span class="flag arrival-flag">' + esc(f.badge) + '</span>' : (f.pending ? '<span class="flag">Awaiting DND</span>' : '')}${icon('right', 18)}</a>`).join('')}</div></div>
     </section>
 
     <section class="event-section event-sponsors" aria-labelledby="event-sponsors-title">
@@ -2659,7 +2660,7 @@ PAGES.help = (arg) => {
       <a href="#/rules">${icon('rules', 24)}<strong>Rules</strong><small>Ranking & tiebreaks</small></a>
       <a href="#/updates">${icon('news', 24)}<strong>Updates</strong><small>Announcements</small></a>
       <a href="#/event">${icon('pin', 24)}<strong>Venue & event</strong><small>Prizes, partners</small></a></nav>
-    <div id="faq-out">${cats.map(c => `<section class="faq-group" data-cat="${esc(c)}"><h2>${esc(c)}</h2>${FAQ.filter(f => f.cat === c).map(f => `<details class="faq" id="q-${f.id}"${f.id === arg ? ' open' : ''}><summary><span>${esc(f.q)}</span>${f.pending ? '<span class="flag">Awaiting DND</span>' : ''}</summary>
+    <div id="faq-out">${cats.map(c => `<section class="faq-group" data-cat="${esc(c)}"><h2>${esc(c)}</h2>${FAQ.filter(f => f.cat === c).map(f => `<details class="faq" id="q-${f.id}"${f.id === arg ? ' open' : ''}><summary><span>${esc(f.q)}</span>${f.badge ? '<span class="flag arrival-flag">' + esc(f.badge) + '</span>' : (f.pending ? '<span class="flag">Awaiting DND</span>' : '')}</summary>
       <div class="a">${f.a}${f.pending ? `<p class="pending-note">${icon('alert', 16)}<span><strong>Awaiting DND:</strong> ${esc(f.pending)}</span></p>` : ''}</div></details>`).join('')}</section>`).join('')}
     <div class="empty" id="faq-empty" hidden><h3>No answer found</h3><p>Try another word, check the <a href="#/guide/1">Player Guide</a>, or ask Qourts Match Control at the venue.</p></div></div>`;
 };
