@@ -2194,8 +2194,20 @@ function hgSync(i) {
   if (tab && tabs) tabs.scrollTo({ left: tab.offsetLeft - (tabs.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' });
 }
 let hgBook = null;
+let hgRequestedPage = null; // last requested chapter; never interrupt an in-progress flip
 function hgReduced() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function hgApplyRequestedPage() {
+  if (!hgBook || hgRequestedPage === null || hgBook.getState() !== 'read') return;
+  const current = hgBook.getCurrentPageIndex();
+  const requested = hgRequestedPage;
+  if (current === requested) { hgRequestedPage = null; hgSync(current); return; }
+  // StPageFlip cannot safely accept new flip commands while the previous flip is animating.
+  if (requested === current + 1) hgBook.flipNext();
+  else if (requested === current - 1) hgBook.flipPrev();
+  else hgBook.flip(requested);
+}
 function initBook() {
+  hgRequestedPage = null;
   hgBook = null;
   const el = $('#hg-book'); if (!el) return;
   const start = Math.min(Math.max(state.homeGuide || 0, 0), GUIDE.length - 1);
@@ -2210,13 +2222,18 @@ function initBook() {
       mobileScrollSupport: true, swipeDistance: 30, showPageCorners: true, startPage: start, startZIndex: 1 });
     hgBook.loadFromHTML(el.querySelectorAll('.hg-page'));
     hgBook.on('flip', e => hgSync(Number(e.data)));
+    hgBook.on('changeState', e => { if (e.data === 'read') setTimeout(hgApplyRequestedPage, 0); });
   } catch (err) { hgBook = null; el.classList.add('hg-static'); el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === start)); }
 }
 function setHomeGuide(i, scrollPage) {
   if (i < 0 || i >= GUIDE.length) return;
-  if (hgBook) { const cur = hgBook.getCurrentPageIndex(); if (i === cur + 1) hgBook.flipNext(); else if (i === cur - 1) hgBook.flipPrev(); else if (i !== cur) hgBook.flip(i); }
-  else { const el = $('#hg-book'); if (el) el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === i)); }
-  hgSync(i);
+  if (hgBook) {
+    hgRequestedPage = i;
+    hgApplyRequestedPage(); // queues rapid selections, but lets each physical flip finish
+  } else {
+    const el = $('#hg-book'); if (el) el.querySelectorAll('.hg-page').forEach((pg, k) => pg.classList.toggle('on', k === i));
+    hgSync(i);
+  }
   if (scrollPage) { const box = $('#home-guide'); const top = box.getBoundingClientRect().top; if (top < 0 || top > innerHeight * 0.6) box.scrollIntoView({ block: 'start', behavior: hgReduced() ? 'auto' : 'smooth' }); }
 }
 document.addEventListener('keydown', e => {
