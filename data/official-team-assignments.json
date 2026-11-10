@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "event": "DND ALL-OUT Pickleball League",
+  "updated": "2026-11-10",
+  "teams": [
+    {
+      "division": "DUPR 12",
+      "bracket": "A",
+      "slot": "A1",
+      "team": "Dink Republic"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "A",
+      "slot": "A2",
+      "team": "KENYO PICKLEBALL"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "A",
+      "slot": "A3",
+      "team": "Sorry-Sorry-Two"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "A",
+      "slot": "A4",
+      "team": "CROSSCOURTCLUB"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "B",
+      "slot": "B1",
+      "team": "NIGHTKIDS"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "B",
+      "slot": "B2",
+      "team": "Smash Mob"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "B",
+      "slot": "B3",
+      "team": "MORNING MADNESS"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "B",
+      "slot": "B4",
+      "team": "Smash Titans"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "C",
+      "slot": "C1",
+      "team": "F4"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "C",
+      "slot": "C2",
+      "team": "Harmony"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "C",
+      "slot": "C3",
+      "team": "Kootings"
+    },
+    {
+      "division": "DUPR 12",
+      "bracket": "C",
+      "slot": "C4",
+      "team": "Eurobrands4less"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "A",
+      "slot": "A1",
+      "team": "THE PICKLE CAVE"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "A",
+      "slot": "A2",
+      "team": "3M Smash Squad"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "A",
+      "slot": "A3",
+      "team": "TCA x PD"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "A",
+      "slot": "A4",
+      "team": "North Wind Lykns Team"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "B",
+      "slot": "B1",
+      "team": "Netflicks and Chill"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "B",
+      "slot": "B2",
+      "team": "SUNRISE"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "B",
+      "slot": "B3",
+      "team": "The Coincidinks"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "B",
+      "slot": "B4",
+      "team": "Team Sapik"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "C",
+      "slot": "C1",
+      "team": "NIGHTHAWKS"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "C",
+      "slot": "C2",
+      "team": "Kingcourts pickleball"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "C",
+      "slot": "C3",
+      "team": "Soft Queens"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "C",
+      "slot": "C4",
+      "team": "Tarlac Aces"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "D",
+      "slot": "D1",
+      "team": "Dinkity Dink Pickleball Community"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "D",
+      "slot": "D2",
+      "team": "Sneaker Sniper PH"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "D",
+      "slot": "D3",
+      "team": "DINKISTA"
+    },
+    {
+      "division": "DUPR 14",
+      "bracket": "D",
+      "slot": "D4",
+      "team": "Northzone Pickleball Courts"
+    },
+    {
+      "division": "DUPR 16",
+      "bracket": "A",
+      "slot": "A1",
+      "team": "ACES United"
+    },
+    {
+      "division": "DUPR 16",
+      "bracket": "A",
+      "slot": "A2",
+      "team": "Team Paddle Lab X The Kitchen Paddles"
+    },
+    {
+      "division": "DUPR 16",
+      "bracket": "A",
+      "slot": "A3",
+      "team": "Dinkista"
+    },
+    {
+      "division": "DUPR 16",
+      "bracket": "A",
+      "slot": "A4",
+      "team": "Midnight Dinkers"
+    }
+  ]
+}
