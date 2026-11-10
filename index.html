@@ -2578,7 +2578,7 @@ const GUIDE = [
     html: () => `<p>Played only when the four regular games finish <strong>2–2</strong>. All four players from each team take turns in a rotating singles-style game.</p>
       <ul><li>Rally scoring to <strong>21, win by 2</strong>.</li><li>Each player plays <strong>4 consecutive rallies</strong>, then the next player rotates in.</li><li>Teams <strong>switch ends at 11</strong>.</li><li>Each team submits its own rotation to <strong>Match Control at least 5 minutes before the Dreambreaker</strong>. There is no fixed male/female order.</li></ul>
       <p><strong>How it counts:</strong> the Dreambreaker decides who wins the matchup (W/L) and is counted in D (Dreambreakers played). Its rally points never count toward GW, PE, PC or PD.</p>
-      <p><strong>Timeout:</strong> Each team gets one 60-second timeout, callable at any time during the Dreambreaker.</p>
+      <p><strong>Timeout:</strong> Each team gets one 60-second timeout, callable at any time during the Dreambreaker. <strong>This confirmed rule replaces the older no-timeout statement in the original graphic.</strong></p>
       <p><strong>Game point:</strong> The winning point must be earned while serving, under the same game-point freeze as regulation games.</p>` },
   { nav: 'Lineups & finish', title: 'Mixed lineups. <em>Go all-out.</em>', alt: 'Mixed doubles lineup: pairings can change every matchup; each team submits Mixed 1 and Mixed 2 as one male plus one female; both teams submit independently. Ready to go all-out.',
     html: () => `<p>For every matchup, each team submits <strong>Mixed #1</strong> and <strong>Mixed #2</strong>, each one man + one woman. Pairings can change from one matchup to the next, and both teams submit independently. Mixed games are played in submission order.</p>
@@ -2591,7 +2591,7 @@ const GUIDE = [
 PAGES.guide = (arg) => {
   const i = Math.min(Math.max((Number(arg) || 1) - 1, 0), GUIDE.length - 1);
   const g = GUIDE[i];
-  return `${pageHead('Pre-tournament player guide', 'ALL-OUT <em>Explained</em>', 'The six official ALL-OUT EXPLAINED graphics, in order, with the current rules beside each one. Tap a graphic to enlarge it.')}
+  return `${pageHead('Pre-tournament player guide', 'ALL-OUT <em>Explained</em>', 'The six original ALL-OUT EXPLAINED graphics, with updated rules beside each one. If a graphic differs, follow the latest written clarification. Tap a graphic to enlarge it.')}
     <nav class="guide-nav" aria-label="Guide sections">${GUIDE.map((x, k) => `<button type="button" data-act="guide" data-i="${k + 1}"${k === i ? ' aria-current="step"' : ''}><b>${String(k + 1).padStart(2, '0')}</b>${esc(x.nav)}</button>`).join('')}</nav>
     <div class="guide-stage"><figure class="guide-fig" id="guide-fig">
         <button type="button" class="zoom" data-act="zoom" data-src="g${i}" data-title="ALL-OUT Explained ${i + 1} of 6" aria-label="Enlarge graphic ${i + 1} of 6"><img src="${ASSETS.guide[i]}" alt="${esc(g.alt)}" width="1638" height="2048"><span class="zoom-hint">${icon('zoom', 16)} Enlarge</span></button>
